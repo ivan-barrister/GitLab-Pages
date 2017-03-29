@@ -1,0 +1,5 @@
+exclude: 
+  - Gruntfile.js
+  - package.json
+  - bower.json
+  - gulpfile.js

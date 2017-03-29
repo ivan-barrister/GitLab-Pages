@@ -9,6 +9,7 @@ var routes = require('./routes/index');
 var users = require('./routes/users');
 var projects = require('./routes/projects');
 var webhooks = require('./routes/webhooks');
+var syshooks = require('./routes/syshooks');
 var exphbs  = require('express-handlebars');
 var serveIndex = require('serve-index');
 var config = require("./config");
@@ -30,8 +31,8 @@ app.set('view engine', 'handlebars');
 // uncomment after placing your favicon in /public
 //app.use(favicon(__dirname + '/public/favicon.ico'));
 app.use(logger('dev'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({limit: '5mb'}));
+app.use(bodyParser.urlencoded({ extended: true, limit: '5mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -40,6 +41,7 @@ app.use('/', routes);
 app.use('/users', users);
 app.use('/projects', projects);
 app.use('/webhooks', webhooks);
+app.use('/syshooks', syshooks);
 
 // Pages
 app.use('/pages', express.static(config.deploy.publicPagesDir));

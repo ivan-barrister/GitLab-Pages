@@ -12,7 +12,7 @@ var debug = require('debug')('routes:webhooks');
 
 /* POST  */
 router.post('/pages.json', function(req, res, next) {
-    debug('/pages.json');
+    debug('>>>>>> /pages.json');
     var payload = req.body;
     // debug(payload);
     var userId = payload.user_id;
@@ -26,7 +26,7 @@ router.post('/pages.json', function(req, res, next) {
     debug('deploy ref: '+deployRef+', ref: '+ref);
     if (ref !== deployRef) {
         // debug(ref, deployRef);
-        return res.end();
+        //return res.end();
     }
 
     // var opts = {
@@ -128,10 +128,15 @@ router.post('/pages.json', function(req, res, next) {
                 debug('Move from working directory to page directory');
                 // Move from workingDir to pages dir
                 var finalRepoPath = path.resolve(config.deploy.publicPagesDir, projectNamespace, projectName);
+		var configPath = path.resolve(finalRepoPath, '_config.yml');
+//		if (!path.existsSync(configPath))
+//		{
+		    configPath = path.resolve('./config/defaults.yml');
+//		}
                 // Delete workingDir
                 rmdir(finalRepoPath, function() {
                     // jekyll build --safe --source .tmp/Glavin001/gitlab-pages-example/ --destination pages/Glavin001/gitlab-pages-example
-                    var cmd = "jekyll build --safe --source \""+repoPath+"\" --destination \""+finalRepoPath+"\"";
+                    var cmd = "jekyll build --safe --source \""+repoPath+"\" --destination \""+finalRepoPath+"\" --config \""+configPath+"\"";
                     exec(cmd, function (error, stdout, stderr) {
                         debug(error, stdout, stderr);
                         // output is in stdout
