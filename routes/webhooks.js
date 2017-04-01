@@ -137,8 +137,10 @@ router.post('/pages.json', function (req, res, next) {
 
                     if (fs.existsSync(configPath))
                     {
-                        var cfg = yaml.load("configPath");
+                        debug('found custom config at ' + configPath);
+                        var cfg = yaml.load(configPath);
                         engine = cfg.engine;
+                        debug('using engine:' + engine);
                     } else {
                         configPath = path.resolve('./config/defaults.yml');
                     }
