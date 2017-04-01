@@ -21,3 +21,4 @@ _config.js
 keys/*
 !keys/README.md
 .vs
+log

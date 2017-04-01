@@ -12,7 +12,7 @@ module.exports = (function() {
 
     if (fs.existsSync(localConfig))
     {
-        var c = require();
+        var c = require(localConfig);
         _.merge(config, c);
     }
 
