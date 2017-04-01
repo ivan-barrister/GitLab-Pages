@@ -1,4 +1,5 @@
 var path = require("path");
+var fs = require("fs");
 var _ = require('lodash');
 
 module.exports = (function() {
@@ -6,12 +7,15 @@ module.exports = (function() {
     // Load custom config
     var config = {};
     _.merge(config, defaults);
-    try {
-        var c = require('./_config.js');
+
+    var localConfig = './_config.js';
+
+    if (fs.existsSync(localConfig))
+    {
+        var c = require();
         _.merge(config, c);
-    } catch (e) {
-        console.error(e);
     }
+
     // Override some config vars using environment
     if (process.env.GITLAB_URL)
         config.gitlab.url = process.env.GITLAB_URL;

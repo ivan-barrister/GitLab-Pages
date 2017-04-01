@@ -9,9 +9,12 @@ var rmdir = require('rimraf');
 var mv = require('mv');
 var exec = require('child_process').exec;
 var debug = require('debug')('routes:webhooks');
+var yaml = require('yamljs');
+var promixify = require('promisify-node');
+var ncp = require('ncp').ncp;
 
 /* POST  */
-router.post('/pages.json', function(req, res, next) {
+router.post('/pages.json', function (req, res, next) {
     debug('>>>>>> /pages.json');
     var payload = req.body;
     // debug(payload);
@@ -22,8 +25,8 @@ router.post('/pages.json', function(req, res, next) {
     var ref = payload.ref;
 
     // Check if this is the deploy branch
-    var deployRef = "refs/heads/"+config.deploy.deployBranch;
-    debug('deploy ref: '+deployRef+', ref: '+ref);
+    var deployRef = "refs/heads/" + config.deploy.deployBranch;
+    debug('deploy ref: ' + deployRef + ', ref: ' + ref);
     if (ref !== deployRef) {
         // debug(ref, deployRef);
         //return res.end();
@@ -47,7 +50,7 @@ router.post('/pages.json', function(req, res, next) {
     var opts = {
         ignoreCertErrors: 1,
         remoteCallbacks: {
-            credentials: function(url, userName) {
+            credentials: function (url, userName) {
                 return NodeGit.Cred.sshKeyNew(
                     userName,
                     config.deploy.sshPublicKey,
@@ -56,15 +59,15 @@ router.post('/pages.json', function(req, res, next) {
             }
         }
     };
-    
+
     var cloneOptions = {
         checkoutBranch: config.deploy.deployBranch,
         fetchOpts: {
             callbacks: {
-                certificateCheck: function(){
+                certificateCheck: function () {
                     return 1;
                 },
-                credentials: function(url, userName){
+                credentials: function (url, userName) {
                     return NodeGit.Cred.sshKeyNew(
                         userName,
                         config.deploy.sshPublicKey,
@@ -87,7 +90,7 @@ router.post('/pages.json', function(req, res, next) {
     debug('url', url);
 
     // Check if repo already exists
-    fs.exists(repoPath, function(exists) {
+    fs.exists(repoPath, function (exists) {
         var promise = null;
         if (exists) {
             promise = NodeGit.Repository.open(repoPath);
@@ -95,56 +98,75 @@ router.post('/pages.json', function(req, res, next) {
             // Clone if not already exists
             promise = NodeGit.Clone(url, repoPath, _.cloneDeep(cloneOptions));
         }
-        promise.catch(function(error) { 
+        promise.catch(function (error) {
             console.error(error);
-        }).then(function(repo) {
+        }).then(function (repo) {
             debug('repo path', repo.path());
             debug('fetch all', repo, cloneOptions);
             return repo.fetchAll(cloneOptions.fetchOpts)
-            // Now that we're finished fetching, go ahead and merge our local branch
-            // with the new one
-            .catch(function(error){
-                console.error(error);
-            })
-            .then(function(fetches){
-                debug('fetches', fetches);
-                return repo.mergeBranches(config.deploy.deployBranch, "origin/"+config.deploy.deployBranch);
-            })
-            .catch(function(error){
-                console.error(error);
-            })
-            .then(function(merges) {
-                debug('merges', merges);
-                debug('afterCommit', afterCommit);
-                debug('repo', repo);
-                return repo.getCommit(afterCommit);
-            })
-            .catch(function(error){
-                console.error(error);
-            })
-            .then(function(commit) {
-                debug('commit', commit);
+                // Now that we're finished fetching, go ahead and merge our local branch
+                // with the new one
+                .catch(function (error) {
+                    console.error(error);
+                })
+                .then(function (fetches) {
+                    debug('fetches', fetches);
+                    return repo.mergeBranches(config.deploy.deployBranch, "origin/" + config.deploy.deployBranch);
+                })
+                .catch(function (error) {
+                    console.error(error);
+                })
+                .then(function (merges) {
+                    debug('merges', merges);
+                    debug('afterCommit', afterCommit);
+                    debug('repo', repo);
+                    return repo.getCommit(afterCommit);
+                })
+                .catch(function (error) {
+                    console.error(error);
+                })
+                .then(function (commit) {
+                    debug('commit', commit);
 
-                debug('Move from working directory to page directory');
-                // Move from workingDir to pages dir
-                var finalRepoPath = path.resolve(config.deploy.publicPagesDir, projectNamespace, projectName);
-		var configPath = path.resolve(finalRepoPath, '_config.yml');
-//		if (!path.existsSync(configPath))
-//		{
-		    configPath = path.resolve('./config/defaults.yml');
-//		}
-                // Delete workingDir
-                rmdir(finalRepoPath, function() {
-                    // jekyll build --safe --source .tmp/Glavin001/gitlab-pages-example/ --destination pages/Glavin001/gitlab-pages-example
-                    var cmd = "jekyll build --safe --source \""+repoPath+"\" --destination \""+finalRepoPath+"\" --config \""+configPath+"\"";
-                    exec(cmd, function (error, stdout, stderr) {
-                        debug(error, stdout, stderr);
-                        // output is in stdout
-                        debug('Done deploying '+projectNamespace+'/'+projectName);
+                    debug('Move from working directory to page directory');
+                    // Move from workingDir to pages dir
+                    var finalRepoPath = path.resolve(config.deploy.publicPagesDir, projectNamespace, projectName);
+                    var configPath = path.resolve(finalRepoPath, '_config.yml');
+
+                    var engine = "jekyll";
+
+                    if (fs.existsSync(configPath))
+                    {
+                        var cfg = yaml.load("configPath");
+                        engine = cfg.engine;
+                    } else {
+                        configPath = path.resolve('./config/defaults.yml');
+                    }
+
+                    // Delete workingDir
+                    rmdir(finalRepoPath, function () {
+
+                        if (engine == "jekyll") {
+                            // jekyll build --safe --source .tmp/Glavin001/gitlab-pages-example/ --destination pages/Glavin001/gitlab-pages-example
+                            var cmd = "jekyll build --safe --source \"" + repoPath + "\" --destination \"" + finalRepoPath + "\" --config \"" + configPath + "\"";
+                            exec(cmd, function (error, stdout, stderr) {
+                                debug(error, stdout, stderr);
+                                // output is in stdout
+                                debug('Done deploying ' + projectNamespace + '/' + projectName);
+                            });
+                        } else if (engine == "raw") {
+                            ncp(repoPath, finalRepoPath, function (err) {
+                                if (err) {
+                                    return console.error("failed to copy repository - " + err);
+                                }
+                                debug('Done deploying ' + projectNamespace + '/' + projectName);
+                            });
+                        } else {
+                            console.error("ERROR: invalid deploy method: " + engine);
+                        }
                     });
-                });
 
-            });
+                });
         });
     });
 
